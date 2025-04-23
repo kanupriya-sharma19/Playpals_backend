@@ -429,11 +429,7 @@ export async function resetPassword(req: Request, res: Response): Promise<any> {
     .status(200)
     .json({ status: true, message: "Password updated successfully" });
 }
-
-export async function changePassword(
-  req: Request,
-  res: Response,
-): Promise<any> {
+export async function changePassword(req: Request, res: Response): Promise<any> {
   try {
     if (!req.owner) {
       return res
@@ -442,7 +438,7 @@ export async function changePassword(
     }
 
     const { oldPassword, newPassword } = req.body;
-    const userId = req.owner.id as string;
+    const userId = req.owner.id;  // Use req.owner.id to get the user's ID
 
     const user = await prisma.owner.findUnique({ where: { id: userId } });
 
@@ -475,6 +471,7 @@ export async function changePassword(
     });
   }
 }
+
 
 export async function getOwnerProfile(
   req: Request,

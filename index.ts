@@ -49,5 +49,6 @@ process.on("SIGINT", async () => {
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
 });
-
+const endpoints = listEndpoints(app);
+console.log(endpoints);
 export { app };

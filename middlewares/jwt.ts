@@ -38,7 +38,7 @@ export const authenticateOwner = (
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as { id: string };
-    req.user = { id: decoded.id };
+    req.owner = { id: decoded.id };
     next();
   } catch (error) {
     res.status(401).json({ status: false, message: "Invalid token" });
