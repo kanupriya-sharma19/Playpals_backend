@@ -10,8 +10,7 @@ export const createReview = async (req: Request, res: Response): Promise<any> =>
     if (!userId || !turfId || !rating) {
       return res.status(400).json({ error: "Missing required fields" });
     }
-    console.log("Files received:", req.files);
-    // Check if user exists
+
     const userExists = await prisma.user.findUnique({ where: { id: userId } });
     if (!userExists) {
       return res.status(404).json({ error: "User not found. Please login again." });
