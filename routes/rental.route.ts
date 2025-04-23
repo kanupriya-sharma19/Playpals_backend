@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { authenticateUser, authenticateTurfOwner } from "../middlewares/jwt.js";
+import { authenticateUser, authenticateOwner } from "../middlewares/jwt.js";
 import { uploadFields } from "../middlewares/multer.js";
 
 import {
@@ -13,7 +13,7 @@ import {
 const rentalRoute = Router();
 rentalRoute.post(
   "/",
-  [authenticateUser, authenticateTurfOwner],
+  [authenticateUser, authenticateOwner],
   uploadFields,
   createRental,
 );
@@ -22,16 +22,8 @@ rentalRoute.get("/", getAllRentals);
 
 rentalRoute.get("/:id", getRentalById);
 
-rentalRoute.put(
-  "/:id",
-  [authenticateUser, authenticateTurfOwner],
-  updateRental,
-);
+rentalRoute.put("/:id", [authenticateUser, authenticateOwner], updateRental);
 
-rentalRoute.delete(
-  "/:id",
-  [authenticateUser, authenticateTurfOwner],
-  deleteRental,
-);
+rentalRoute.delete("/:id", [authenticateUser, authenticateOwner], deleteRental);
 
 export default rentalRoute;

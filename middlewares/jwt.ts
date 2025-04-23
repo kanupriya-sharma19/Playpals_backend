@@ -10,7 +10,6 @@ export const authenticateUser = (
   res: Response,
   next: NextFunction,
 ): void => {
-  
   const token = req.headers["authorization"]?.split(" ")[1];
   if (!token) {
     res.status(401).json({ status: false, message: "No token provided" });
@@ -26,7 +25,7 @@ export const authenticateUser = (
   }
 };
 
-export const authenticateTurfOwner = (
+export const authenticateOwner = (
   req: Request,
   res: Response,
   next: NextFunction,
@@ -39,7 +38,7 @@ export const authenticateTurfOwner = (
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as { id: string };
-    req.turfOwner = { id: decoded.id };
+    req.user = { id: decoded.id };
     next();
   } catch (error) {
     res.status(401).json({ status: false, message: "Invalid token" });

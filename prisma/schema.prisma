@@ -30,62 +30,18 @@ model User {
   amenityBookings      SportsAmenityBooking[] @relation("UserBookings")
 }
 
-model TurfOwner {
-  id           String  @id @default(cuid())
-  name         String?
-  email        String  @unique
-  password     String
-  profilePhoto String?
-  phoneNumber  String
-
-  turfPhoto       String[]
-  turfName        String
-  turfDescription String?
-  turfLocation    String
-  turfSize        String?
-  turfGames       String[]
-  amenities       String[]
-  ratings         Float    @default(0.0)
-  countReviews         Int    @default(0)
-  pricePerPerson  Float?
-
-  totalSeats        Int?
-  availableSeats    Int     @default(0)
-  available         Boolean @default(true)
-  availabilitySlots Json?
-
-  ownerType          TurfOwnerType
-  organizationName   String? // Required if ownerType = ORGANIZATION
-  registrationNumber String? // Required if ownerType = ORGANIZATION
-  contactPersonName  String? // Required if ownerType = ORGANIZATION
-  contactPersonPhone String? // Required if ownerType = ORGANIZATION
-  createdAt          DateTime        @default(now())
-  updatedAt          DateTime        @updatedAt
-  bookings           Booking[]
-  reviews            Review[]        @relation("TurfReviews")
-  ownedAmenities     SportsAmenity[] @relation("TurfOwnerRentals")
-  resetToken           String?                @unique
-  resetTokenExpiration DateTime?
-  @@map("TurfOwner")
-}
-
-enum TurfOwnerType {
-  INDIVIDUAL
-  ORGANIZATION
-}
-
 model Review {
   id        String    @id @default(cuid())
   user      User      @relation(name: "UserReviews", fields: [userId], references: [id])
   userId    String
-  turf      TurfOwner @relation(name: "TurfReviews", fields: [turfId], references: [id])
+  turf      Turf      @relation(name: "TurfReviews", fields: [turfId], references: [id])
   turfId    String
   rating    Float     @default(0.0)
   comment   String?
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   bookings  Booking[]
-  photo      String?
+  photo     String?
 }
 
 enum Status {
@@ -95,19 +51,19 @@ enum Status {
 }
 
 model Booking {
-  id            String    @id @default(cuid())
+  id            String   @id @default(cuid())
   turfId        String
   userId        String
   numberOfSeats Int
   day           String
   bookedFrom    DateTime
   bookedTo      DateTime
-  status        Status    @default(PENDING)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  turf          TurfOwner @relation(fields: [turfId], references: [id])
-  user          User      @relation(fields: [userId], references: [id])
-  Review        Review?   @relation(fields: [reviewId], references: [id])
+  status        Status   @default(PENDING)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  turf          Turf     @relation(fields: [turfId], references: [id])
+  user          User     @relation(fields: [userId], references: [id])
+  Review        Review?  @relation(fields: [reviewId], references: [id])
   reviewId      String?
 }
 
@@ -131,14 +87,16 @@ model SportsAmenity {
 
   userId      String?
   turfOwnerId String?
+  turfId      String?
 
-  ownerUser User?      @relation(fields: [userId], references: [id], name: "UserRentals", map: "SportsAmenity_User_fkey")
-  ownerTurf TurfOwner? @relation(fields: [turfOwnerId], references: [id], name: "TurfOwnerRentals", map: "SportsAmenity_TurfOwner_fkey")
+  ownerUser User? @relation(fields: [userId], references: [id], name: "UserRentals", map: "SportsAmenity_User_fkey")
+  ownerTurf Turf? @relation(fields: [turfOwnerId], references: [id], name: "TurfOwnerRentals", map: "SportsAmenity_TurfOwner_fkey")
 
   bookings SportsAmenityBooking[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  Turf      Turf?    @relation(fields: [turfId], references: [id])
 }
 
 model SportsAmenityBooking {
@@ -168,4 +126,54 @@ enum BookingStatus {
   CONFIRMED
   CANCELLED
   COMPLETED
+}
+
+enum TurfOwnerType {
+  INDIVIDUAL
+  ORGANIZATION
+}
+
+model Owner {
+  id                   String        @id @default(cuid())
+  name                 String?
+  email                String        @unique
+  password             String
+  profilePhoto         String?
+  phoneNumber          String
+  ownerType            TurfOwnerType
+  organizationName     String?
+  registrationNumber   String?
+  contactPersonName    String?
+  contactPersonPhone   String?
+  turfs                Turf[]
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+  resetToken           String?       @unique
+  resetTokenExpiration DateTime?
+}
+
+model Turf {
+  id                String          @id @default(cuid())
+  turfName          String
+  turfDescription   String?
+  turfLocation      String
+  turfSize          String?
+  turfGames         String[]
+  amenities         String[]
+  ratings           Float           @default(0.0)
+  countReviews      Int             @default(0)
+  pricePerPerson    Float?
+  totalSeats        Int?
+  availableSeats    Int             @default(0)
+  available         Boolean         @default(true)
+  availabilitySlots Json?
+  turfPhoto         String[]
+  ownerId           String
+  owner             Owner           @relation(fields: [ownerId], references: [id])
+  bookings          Booking[]
+  reviews           Review[]        @relation("TurfReviews")
+  ownedAmenities    SportsAmenity[] @relation("TurfOwnerRentals")
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  SportsAmenity     SportsAmenity[]
 }
