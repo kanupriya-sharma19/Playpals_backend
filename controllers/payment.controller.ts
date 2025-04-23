@@ -11,8 +11,7 @@ export const createOrder = async (
   res: Response,
 ): Promise<any> => {
   const userId = req.user.id;
-  const { turfId, amount, numberOfSeats, bookedFrom, bookedTo, day } =
-    req.body;
+  const { turfId, amount, numberOfSeats, bookedFrom, bookedTo, day } = req.body;
 
   try {
     const bookedFromFormatted = parse(
@@ -28,8 +27,10 @@ export const createOrder = async (
         .json({ success: false, message: "Invalid booking time range" });
     }
 
-    const turf = await prisma.turfOwner.findUnique({
+    // Updated: Find Turf instead of TurfOwner
+    const turf = await prisma.turf.findUnique({
       where: { id: turfId },
+      include: { owner: true }, // Include owner details
     });
 
     if (!turf) {
@@ -58,12 +59,11 @@ export const createOrder = async (
       const slotsData: {
         day: string;
         date?: string;
-        slots: { start: string; end: string }[];
+        slots: { start: string; end: string; availableSeats?: number }[];
       }[] =
         typeof turf.availabilitySlots === "string"
           ? JSON.parse(turf.availabilitySlots)
           : turf.availabilitySlots;
-      
 
       const matchingDay = slotsData.find(
         (slotDay) => slotDay.day.toLowerCase() === day.toLowerCase(),
@@ -82,7 +82,8 @@ export const createOrder = async (
 
         return (
           !isBefore(bookedFromFormatted, slotStart) &&
-          !isAfter(bookedToFormatted, slotEnd)
+          !isAfter(bookedToFormatted, slotEnd) &&
+          (!slot.availableSeats || slot.availableSeats >= numberOfSeats)
         );
       });
 
@@ -146,12 +147,70 @@ export const verifyPayment = async (
     .digest("hex");
 
   if (expectedSignature === razorpay_signature) {
+    // Payment verified, update booking status
     await prisma.booking.update({
       where: { id: bookingId },
-      data: {
-        status: "CONFIRMED",
-      },
+      data: { status: "CONFIRMED" },
     });
+
+    // Fetch booking and turf
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+    });
+
+    if (booking) {
+      // NOW we decrease availableSeats and update availabilitySlots for the turf
+      const turf = await prisma.turf.findUnique({
+        where: { id: booking.turfId },
+      });
+
+      if (turf) {
+        // Get current availability slots
+        let availabilitySlots = turf.availabilitySlots
+          ? typeof turf.availabilitySlots === "string"
+            ? JSON.parse(turf.availabilitySlots)
+            : turf.availabilitySlots
+          : [];
+
+        // Find the day in the slots
+        const dayIndex = availabilitySlots.findIndex(
+          (slot: any) => slot.day === booking.day,
+        );
+
+        if (dayIndex !== -1) {
+          const bookedFromTime = new Date(booking.bookedFrom)
+            .toTimeString()
+            .substring(0, 5);
+          const bookedToTime = new Date(booking.bookedTo)
+            .toTimeString()
+            .substring(0, 5);
+
+          // Update the specific slot
+          availabilitySlots[dayIndex].slots = availabilitySlots[dayIndex].slots
+            .map((slot: any) => {
+              if (slot.start <= bookedFromTime && slot.end >= bookedToTime) {
+                return {
+                  ...slot,
+                  availableSeats:
+                    (slot.availableSeats || turf.availableSeats) -
+                    booking.numberOfSeats,
+                };
+              }
+              return slot;
+            })
+            .filter((slot: any) => slot.availableSeats > 0);
+        }
+
+        // Update the turf with new availability
+        await prisma.turf.update({
+          where: { id: turf.id },
+          data: {
+            availableSeats: { decrement: booking.numberOfSeats },
+            availabilitySlots,
+          },
+        });
+      }
+    }
 
     return res.json({
       success: true,

@@ -2,7 +2,8 @@ import express, { Request, Response } from "express";
 import dotenv from "dotenv";
 import cors from "cors";
 import userRoute from "./routes/user.route.js";
-import turfOwnerRoute from "./routes/turfOwner.route.js";
+import ownerRoute from "./routes/owner.route.js";
+import turfRoute from "./routes/turf.route.js";
 import reviewRouter from "./routes/reviews.route.js";
 import searchRouter from "./routes/searchRoutes.js";
 import paymentRoutes from "./routes/payment.route.js";
@@ -29,18 +30,15 @@ app.use(
 );
 
 app.use("/user", userRoute);
-app.use("/turf", turfOwnerRoute);
+app.use("/owner", ownerRoute);
+app.use("/turf", turfRoute);
 app.use("/review", reviewRouter);
 app.use("/rentals", rentalRoute);
 app.use("/api", searchRouter);
 app.use("/payment", paymentRoutes);
 
-// app.get("*", (req: Request, res: Response) => {
-//   res.send("Hello World!");
-// });
-
 app.get("/", (req: Request, res: Response) => {
-  res.redirect("/user/view");
+  res.send("PlayPals API v1.0");
 });
 
 process.on("SIGINT", async () => {
@@ -52,6 +50,4 @@ app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
 });
 
-// // List all endpoints
-// console.log(listEndpoints(app));
 export { app };

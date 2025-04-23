@@ -313,7 +313,12 @@ export async function bookTurf(req: Request, res: Response): Promise<any> {
       return res.status(404).json({ status: false, message: "User not found" });
     }
 
-    const turf = await prisma.turfOwner.findUnique({ where: { id: turfId } });
+    // Updated: Find Turf instead of TurfOwner
+    const turf = await prisma.turf.findUnique({
+      where: { id: turfId },
+      include: { owner: true }, // Include owner details
+    });
+
     if (!turf) {
       return res.status(404).json({ status: false, message: "Turf not found" });
     }
@@ -322,6 +327,7 @@ export async function bookTurf(req: Request, res: Response): Promise<any> {
     const dayAvailabilityIndex = availabilitySlots.findIndex(
       (slot: any) => slot.day === day,
     );
+
     if (dayAvailabilityIndex === -1) {
       return res.status(400).json({
         status: "false",
@@ -337,6 +343,7 @@ export async function bookTurf(req: Request, res: Response): Promise<any> {
         slot.availableSeats >= numberOfSeats
       );
     });
+
     if (!slotAvailability) {
       return res.status(400).json({
         status: "false",
@@ -350,20 +357,8 @@ export async function bookTurf(req: Request, res: Response): Promise<any> {
         .json({ status: false, message: "Not enough seats available" });
     }
 
-    dayAvailability.slots = dayAvailability.slots
-      .map((slot: any) => {
-        if (slot.start === bookedFromTime && slot.end === bookedToTime) {
-          return {
-            ...slot,
-            availableSeats: slot.availableSeats - numberOfSeats,
-          };
-        }
-        return slot;
-      })
-      .filter((slot: any) => slot.availableSeats > 0);
-
+    // Calculate booking dates
     const selectedDate = new Date();
-
     const dayOfWeek = [
       "Sunday",
       "Monday",
@@ -373,20 +368,25 @@ export async function bookTurf(req: Request, res: Response): Promise<any> {
       "Friday",
       "Saturday",
     ];
+
     const targetDayIndex = dayOfWeek.indexOf(day);
     const todayIndex = selectedDate.getDay();
     const daysToAdd =
       targetDayIndex >= todayIndex
         ? targetDayIndex - todayIndex
         : 7 - todayIndex + targetDayIndex;
+
     selectedDate.setDate(selectedDate.getDate() + daysToAdd);
+
     const bookedFromDateTime = new Date(
       `${selectedDate.toISOString().split("T")[0]}T${bookedFrom}:00Z`,
     );
+
     const bookedToDateTime = new Date(
       `${selectedDate.toISOString().split("T")[0]}T${bookedTo}:00Z`,
     );
 
+    // Create booking but REMOVED: Do not decrease slots/seats here
     const booking = await prisma.booking.create({
       data: {
         userId,
@@ -399,17 +399,11 @@ export async function bookTurf(req: Request, res: Response): Promise<any> {
       },
     });
 
-    await prisma.turfOwner.update({
-      where: { id: turfId },
-      data: {
-        availableSeats: turf.availableSeats - numberOfSeats,
-        availabilitySlots,
-      },
-    });
+    // REMOVED: The update to decrease availability - now happens in payment verification
 
     return res.status(201).json({
       status: true,
-      message: "Turf booked successfully",
+      message: "Turf booking created, waiting for payment confirmation",
       data: booking,
     });
   } catch (err: any) {
@@ -474,7 +468,7 @@ export const bookRental = async (
       where: { id: amenityId },
       data: {
         quantity: {
-          decrement: quantity, 
+          decrement: quantity,
         },
       },
     });
@@ -569,18 +563,16 @@ export async function getUserProfile(
       },
     });
 
-    if (!user) { 
+    if (!user) {
       return res
         .status(404)
         .json({ status: false, message: "User not found. Please login first" });
     }
-    return res
-      .status(200)
-      .json({
-        status: true,
-        message: "User profile retrieved successfully",
-        user,
-      });
+    return res.status(200).json({
+      status: true,
+      message: "User profile retrieved successfully",
+      user,
+    });
   } catch (err: any) {
     res
       .status(500)
