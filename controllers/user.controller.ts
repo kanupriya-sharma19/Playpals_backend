@@ -5,6 +5,9 @@ import { Prisma } from "@prisma/client";
 import jwt from "jsonwebtoken";
 import nodemailer from "nodemailer";
 import crypto from "crypto";
+import passport from "../config/passportGoogle.js";
+import dotenv from "dotenv";
+dotenv.config();
 
 const prisma = new PrismaClient();
 
@@ -617,3 +620,31 @@ export async function getOtherUserProfile(
       .json({ status: false, message: err.message || "Server error" });
   }
 }
+
+export const googleAuth = passport.authenticate("google", {
+  scope: ["profile", "email"],
+});
+
+export const googleCallback = (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  passport.authenticate("google", { session: false }, async (err, user) => {
+    if (err || !user) return res.redirect("/login?error=google_auth_failed");
+
+    // Issue JWT
+    const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET as string, {
+      expiresIn: "1h",
+    });
+
+    // Optionally update lastLogin
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {},
+    });
+
+    // Redirect to frontend with token (or set cookie)
+    res.redirect(`${process.env.CLIENT_URL}/auth/success?token=${token}`);
+  })(req, res, next);
+};

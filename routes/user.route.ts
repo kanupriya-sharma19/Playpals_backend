@@ -14,6 +14,8 @@ import {
   getBookings,
   getOtherUserProfile,
   getUserProfile,
+  googleAuth,
+  googleCallback,
 } from "../controllers/user.controller.js";
 import { uploadSingle } from "../middlewares/multer.js";
 import { authenticateUser } from "../middlewares/jwt.js";
@@ -21,7 +23,6 @@ import { authenticateUser } from "../middlewares/jwt.js";
 const userRoute = Router();
 userRoute.post("/signup", uploadSingle, signupUser);
 userRoute.get("", getUsers);
-
 
 userRoute.post("/login", loginUser);
 userRoute.put("/update", authenticateUser, uploadSingle, updateProfile);
@@ -37,4 +38,7 @@ userRoute.get("/getBookings", authenticateUser, getBookings); //Gives both upcom
 
 userRoute.post("/rent", authenticateUser, bookRental);
 userRoute.get("/:userid", getUser);
+userRoute.get("/auth/google", googleAuth);
+userRoute.get("/auth/google/callback", googleCallback);
+
 export default userRoute;

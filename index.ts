@@ -11,6 +11,7 @@ import morgan from "morgan";
 import { PrismaClient } from "@prisma/client";
 import rentalRoute from "./routes/rental.route.js";
 import listEndpoints from "express-list-endpoints";
+import passport from "./config/passportGoogle.js";
 
 const prisma = new PrismaClient();
 
@@ -29,6 +30,7 @@ app.use(
   }),
 );
 
+app.use(passport.initialize());
 app.use("/user", userRoute);
 app.use("/owner", ownerRoute);
 app.use("/turf", turfRoute);
