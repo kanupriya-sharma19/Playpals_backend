@@ -6,8 +6,10 @@ import jwt from "jsonwebtoken";
 import { any, z } from "zod";
 import nodemailer from "nodemailer";
 import crypto from "crypto";
+import { BitlyClient } from 'bitly';
 
 const prisma = new PrismaClient();
+const bitly = new BitlyClient(process.env.BITLY_ACCESS_TOKEN as string);
 
 const availabilitySchema = z.array(
   z.object({
@@ -363,6 +365,16 @@ export async function generateResetLink(
     where: { email },
     data: { resetToken, resetTokenExpiration: new Date(Date.now() + 3600000) }, // 1 hour expiration
   });
+ const longResetLink = `${process.env.TURF_URL}/reset-password?token=${resetToken}`;
+  let shortResetLink = longResetLink;
+
+  try {
+    const result = await bitly.shorten(longResetLink);
+    shortResetLink = result.link;
+  } catch (err) {
+    console.warn("Bitly shortening failed. Sending long URL instead.");
+  }
+
   const transporter = nodemailer.createTransport({
     service: "gmail",
     auth: {
@@ -371,14 +383,13 @@ export async function generateResetLink(
     },
   });
 
-  const resetLink = `${process.env.TURF_URL}/reset-password?token=${resetToken}`;
-  console.log(resetLink);
   const mailOptions = {
     from: process.env.EMAIL_USER,
     to: email,
     subject: "Password Reset Request",
-    text: `Click on the link to reset your password: ${resetLink}`,
+    text: `Click on the link to reset your password: ${shortResetLink}`,
   };
+
   try {
     await transporter.sendMail(mailOptions);
     res

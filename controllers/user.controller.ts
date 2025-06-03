@@ -8,6 +8,8 @@ import crypto from "crypto";
 import passport from "../config/passportGoogle.js";
 import dotenv from "dotenv";
 dotenv.config();
+import { BitlyClient } from 'bitly';
+const bitly = new BitlyClient(process.env.BITLY_ACCESS_TOKEN as string);
 
 const prisma = new PrismaClient();
 
@@ -178,20 +180,32 @@ export async function generateResetLink(
     where: { email },
     data: { resetToken, resetTokenExpiration: new Date(Date.now() + 3600000) }, // 1 hour expiration
   });
-  const transporter = nodemailer.createTransport({
-    service: "gmail",
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
-    },
-  });
-  const resetLink = `${process.env.CLIENT_URL}/reset-password?token=${resetToken}`;
-  const mailOptions = {
-    from: process.env.EMAIL_USER,
-    to: email,
-    subject: "Password Reset Request",
-    text: `Click on the link to reset your password: ${resetLink}`,
-  };
+
+  const longResetLink = `${process.env.USER_URL}/reset-password?token=${resetToken}`;
+    let shortResetLink = longResetLink;
+  
+    try {
+      const result = await bitly.shorten(longResetLink);
+      shortResetLink = result.link;
+    } catch (err) {
+      console.warn("Bitly shortening failed. Sending long URL instead.");
+    }
+  
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+  
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: "Password Reset Request",
+      text: `Click on the link to reset your password: ${shortResetLink}`,
+    };
+  
   try {
     await transporter.sendMail(mailOptions);
     res
