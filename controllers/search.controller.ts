@@ -58,7 +58,7 @@ export const combinedTurfFilter = async (req: Request, res: Response): Promise<a
     // Construct the query to fetch the results
     const queryText = `
       SELECT "id", "turfName", "turfLocation" AS location, "pricePerPerson" AS price, amenities, "availabilitySlots"
-      FROM "TurfOwner"
+      FROM "Turf"
       ${whereClause}
       ORDER BY "pricePerPerson" ASC
       LIMIT $${params.length + 1} OFFSET $${params.length + 2}
@@ -66,7 +66,7 @@ export const combinedTurfFilter = async (req: Request, res: Response): Promise<a
 
     // Construct the query to count the results
     const countText = `
-      SELECT COUNT(*) AS count FROM "TurfOwner" ${whereClause}
+      SELECT COUNT(*) AS count FROM "Turf" ${whereClause}
     `;
 
     // Execute the queries

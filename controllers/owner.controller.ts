@@ -133,7 +133,7 @@ export async function updateOwnerProfile(
   res: Response,
 ): Promise<void> {
   try {
-    const ownerId = req.user.id;
+    const ownerId = req.owner.id;
     const {
       name,
       phoneNumber,
@@ -241,7 +241,7 @@ export async function getAvailableSlots(
   try {
     // Get all turfs owned by this owner
     const turfs = await prisma.turf.findMany({
-      where: { ownerId: req.user.id },
+      where: { ownerId: req.owner.id },
       select: {
         id: true,
         turfName: true,
@@ -274,9 +274,8 @@ export async function getAvailableSlots(
 
 export async function getBookings(req: Request, res: Response): Promise<any> {
   try {
-    // Get all turfs owned by this owner
     const turfs = await prisma.turf.findMany({
-      where: { ownerId: req.user.id },
+      where: { ownerId: req.owner.id },
       include: {
         bookings: {
           include: {
@@ -479,7 +478,7 @@ export async function getOwnerProfile(
 ): Promise<any> {
   try {
     const owner = await prisma.owner.findUnique({
-      where: { id: req.user.id },
+      where: { id: req.owner.id },
       include: { turfs: true },
     });
 

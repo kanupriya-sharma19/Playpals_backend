@@ -20,19 +20,19 @@ const availabilitySchema = z.array(
           .string()
           .regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Invalid time format (HH:MM)"),
         availableSeats: z.number().optional(),
-      }),
+      })
     ),
-  }),
+  })
 );
 
 type AvailabilitySlot = z.infer<typeof availabilitySchema>;
 
 export const registerTurf = async (
   req: Request,
-  res: Response,
+  res: Response
 ): Promise<void> => {
   try {
-    const ownerId = req.user.id;
+    const ownerId = req.owner.id;
     const {
       turfName,
       turfDescription,
@@ -48,7 +48,7 @@ export const registerTurf = async (
     const turfPhotos =
       req.files && "turfPhoto" in req.files
         ? (req.files["turfPhoto"] as Express.Multer.File[]).map(
-            (file) => file.path,
+            (file) => file.path
           )
         : [];
 
@@ -123,11 +123,11 @@ export const registerTurf = async (
 
 export const updateTurfDetails = async (
   req: Request,
-  res: Response,
+  res: Response
 ): Promise<void> => {
   try {
     const turfId = req.params.turfId;
-    const ownerId = req.user.id;
+    const ownerId = req.owner.id;
 
     // First verify that this turf belongs to the owner
     const existingTurf = await prisma.turf.findFirst({
@@ -160,7 +160,7 @@ export const updateTurfDetails = async (
     const turfPhotos =
       req.files && "turfPhoto" in req.files
         ? (req.files["turfPhoto"] as Express.Multer.File[]).map(
-            (file) => file.path,
+            (file) => file.path
           )
         : undefined;
 
@@ -188,11 +188,14 @@ export const updateTurfDetails = async (
     if (amenities)
       amenities = Array.isArray(amenities) ? amenities : [amenities];
 
-    // Process availability slots with explicit typing
     let validatedAvailability: AvailabilitySlot | undefined = undefined;
     if (req.body.availabilitySlots) {
       try {
-        const parsedAvailability = JSON.parse(req.body.availabilitySlots);
+        const parsedAvailability =
+          typeof req.body.availabilitySlots === "string"
+            ? JSON.parse(req.body.availabilitySlots)
+            : req.body.availabilitySlots;
+
         validatedAvailability = availabilitySchema.parse(parsedAvailability);
       } catch (err) {
         res.status(400).json({
@@ -200,6 +203,7 @@ export const updateTurfDetails = async (
           message: "Invalid availability slots format",
           error: err,
         });
+        return;
       }
     }
 
@@ -247,10 +251,10 @@ export const updateTurfDetails = async (
 
 export const getTurfsByOwner = async (
   req: Request,
-  res: Response,
+  res: Response
 ): Promise<void> => {
   try {
-    const ownerId = req.user.id;
+    const ownerId = req.owner.id;
 
     const turfs = await prisma.turf.findMany({
       where: {
@@ -273,7 +277,7 @@ export const getTurfsByOwner = async (
 
 export const getTurfDetails = async (
   req: Request,
-  res: Response,
+  res: Response
 ): Promise<void> => {
   try {
     const { turfId } = req.params;
@@ -316,7 +320,7 @@ export const getTurfDetails = async (
 
 export const getAllTurfs = async (
   req: Request,
-  res: Response,
+  res: Response
 ): Promise<void> => {
   try {
     const turfs = await prisma.turf.findMany({
@@ -343,11 +347,11 @@ export const getAllTurfs = async (
 
 export const getTurfBookings = async (
   req: Request,
-  res: Response,
+  res: Response
 ): Promise<any> => {
   try {
     const { turfId } = req.params;
-    const ownerId = req.user.id;
+    const ownerId = req.owner.id;
 
     // Verify the turf belongs to this owner
     const turf = await prisma.turf.findFirst({
@@ -377,14 +381,14 @@ export const getTurfBookings = async (
       .filter((b) => new Date(b.bookedTo) < now)
       .sort(
         (a, b) =>
-          new Date(b.bookedTo).getTime() - new Date(a.bookedTo).getTime(),
+          new Date(b.bookedTo).getTime() - new Date(a.bookedTo).getTime()
       );
 
     const upcomingBookings = bookings
       .filter((b) => new Date(b.bookedFrom) >= now)
       .sort(
         (a, b) =>
-          new Date(a.bookedFrom).getTime() - new Date(b.bookedFrom).getTime(),
+          new Date(a.bookedFrom).getTime() - new Date(b.bookedFrom).getTime()
       );
 
     return res.status(200).json({
@@ -402,7 +406,7 @@ export const getTurfBookings = async (
 
 export const getTurfReviews = async (
   req: Request,
-  res: Response,
+  res: Response
 ): Promise<void> => {
   try {
     const { turfId } = req.params;
