@@ -4,6 +4,7 @@
   "type": "module",
   "main": "index.js",
   "dev": "nodemon --exec tsx index.ts",
+  "$schema": "https://json.schemastore.org/package",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": " nodemon --exec tsx index.ts",
