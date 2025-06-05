@@ -19,7 +19,7 @@ const availabilitySchema = z.array(
         end: z
           .string()
           .regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Invalid time format (HH:MM)"),
-        availableSeats: z.number().optional(),
+        availableSeats: z.number().min(0), // Make it required instead of optional
       })
     ),
   })
@@ -75,7 +75,20 @@ export const registerTurf = async (
     if (req.body.availabilitySlots) {
       try {
         const parsedAvailability = JSON.parse(req.body.availabilitySlots);
-        validatedAvailability = availabilitySchema.parse(parsedAvailability);
+
+        // Add availableSeats to each slot if not present
+        const slotsWithSeats = parsedAvailability.map((daySlot: any) => ({
+          ...daySlot,
+          slots: daySlot.slots.map((slot: any) => ({
+            ...slot,
+            availableSeats:
+              slot.availableSeats !== undefined
+                ? slot.availableSeats
+                : parseInt(availableSeats, 10) || 0,
+          })),
+        }));
+
+        validatedAvailability = availabilitySchema.parse(slotsWithSeats);
       } catch (err) {
         res.status(400).json({
           success: false,
@@ -196,7 +209,19 @@ export const updateTurfDetails = async (
             ? JSON.parse(req.body.availabilitySlots)
             : req.body.availabilitySlots;
 
-        validatedAvailability = availabilitySchema.parse(parsedAvailability);
+        // Add availableSeats to each slot if not present
+        const slotsWithSeats = parsedAvailability.map((daySlot: any) => ({
+          ...daySlot,
+          slots: daySlot.slots.map((slot: any) => ({
+            ...slot,
+            availableSeats:
+              slot.availableSeats !== undefined
+                ? slot.availableSeats
+                : parseInt(availableSeats, 10) || 0,
+          })),
+        }));
+
+        validatedAvailability = availabilitySchema.parse(slotsWithSeats);
       } catch (err) {
         res.status(400).json({
           success: false,
