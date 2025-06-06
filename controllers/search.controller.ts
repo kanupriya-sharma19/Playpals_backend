@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
+
 export const combinedTurfFilter = async (req: Request, res: Response): Promise<any> => {
   try {
     const {
@@ -49,6 +50,17 @@ export const combinedTurfFilter = async (req: Request, res: Response): Promise<a
       filters.push(`"availabilitySlots"::jsonb @> $${params.length + 1}::jsonb`);
       params.push(JSON.stringify([{ slots: [{ start: startSlot, end: endSlot }] }]));
     }
+    const { turfGames } = req.query;
+
+// Filter by turfGames (array of games)
+if (Array.isArray(turfGames)) {
+  filters.push(`"turfGames" @> $${params.length + 1}::text[]`);
+  params.push(turfGames);
+} else if (typeof turfGames === "string") {
+  filters.push(`"turfGames" @> $${params.length + 1}::text[]`);
+  params.push([turfGames]);
+}
+
 
     // Generate the WHERE clause
     const whereClause = filters.length > 0 ? `WHERE ${filters.join(" AND ")}` : "";
@@ -57,7 +69,8 @@ export const combinedTurfFilter = async (req: Request, res: Response): Promise<a
 
     // Construct the query to fetch the results
     const queryText = `
-      SELECT "id", "turfName", "turfLocation" AS location, "pricePerPerson" AS price, amenities, "availabilitySlots"
+      SELECT "id", "turfName", "turfLocation" AS location, "pricePerPerson" AS price, amenities, "availabilitySlots","turfGames" as Sports
+
       FROM "Turf"
       ${whereClause}
       ORDER BY "pricePerPerson" ASC
