@@ -322,24 +322,67 @@ export async function bookTurf(req: Request, res: Response): Promise<any> {
   try {
     const userId = req.user.id;
     const { turfId, numberOfSeats, bookedFrom, bookedTo, day } = req.body;
-    const bookedFromTime = bookedFrom.split("T")[1]?.substring(0, 5); // Extract "HH:MM"
-    const bookedToTime = bookedTo.split("T")[1]?.substring(0, 5); // Extract "HH:MM"
+
+    // Validate required fields
+    if (!turfId || !numberOfSeats || !bookedFrom || !bookedTo || !day) {
+      return res.status(400).json({
+        status: false,
+        message: "Missing required fields: turfId, numberOfSeats, bookedFrom, bookedTo, day",
+      });
+    }
+
+    // Validate numberOfSeats early
+    const numSeats = parseInt(numberOfSeats);
+    if (isNaN(numSeats) || numSeats <= 0) {
+      return res.status(400).json({
+        status: false,
+        message: "numberOfSeats must be a positive number",
+      });
+    }
+
+    // Safely extract time with validation
+    const bookedFromTime = bookedFrom?.split("T")[1]?.substring(0, 5);
+    const bookedToTime = bookedTo?.split("T")[1]?.substring(0, 5);
+    
+    if (!bookedFromTime || !bookedToTime) {
+      return res.status(400).json({
+        status: false,
+        message: "Invalid datetime format. Use YYYY-MM-DDTHH:MM",
+      });
+    }
+
+    // Validate datetime logic
+    const fromDateTime = new Date(bookedFrom);
+    const toDateTime = new Date(bookedTo);
+    if (fromDateTime >= toDateTime) {
+      return res.status(400).json({
+        status: false,
+        message: "bookedFrom must be before bookedTo",
+      });
+    }
 
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) {
-      return res.status(404).json({ status: false, message: "User not found" });
+      return res.status(404).json({
+        status: false,
+        message: "User not found",
+      });
     }
 
-    // Updated: Find Turf instead of TurfOwner
+    // Find Turf
     const turf = await prisma.turf.findUnique({
       where: { id: turfId },
-      include: { owner: true }, // Include owner details
+      include: { owner: true },
     });
 
     if (!turf) {
-      return res.status(404).json({ status: false, message: "Turf not found" });
+      return res.status(404).json({
+        status: false,
+        message: "Turf not found",
+      });
     }
 
+    // Check availability slots
     let availabilitySlots = (turf.availabilitySlots as any[]) || [];
     const dayAvailabilityIndex = availabilitySlots.findIndex(
       (slot: any) => slot.day === day,
@@ -347,85 +390,65 @@ export async function bookTurf(req: Request, res: Response): Promise<any> {
 
     if (dayAvailabilityIndex === -1) {
       return res.status(400).json({
-        status: "false",
-        message: "Turf at this day is not available",
+        status: false,
+        message: "Turf is not available on this day",
       });
     }
 
     const dayAvailability = availabilitySlots[dayAvailabilityIndex];
-    const slotAvailability = dayAvailability.slots.some((slot: any) => {
+    
+    // Find available slot that matches the time and has enough seats
+    const availableSlot = dayAvailability.slots.find((slot: any) => {
       return (
         bookedFromTime >= slot.start &&
         bookedToTime <= slot.end &&
-        slot.availableSeats >= numberOfSeats
+        slot.availableSeats >= numSeats
       );
     });
 
-    if (!slotAvailability) {
+    if (!availableSlot) {
       return res.status(400).json({
-        status: "false",
-        message: "Turf at this slot is not available",
+        status: false,
+        message: "No available slot found for the requested time with enough seats",
       });
     }
 
-    if (turf.availableSeats < numberOfSeats) {
-      return res
-        .status(404)
-        .json({ status: false, message: "Not enough seats available" });
-    }
+    // Calculate dates for booking
+    const bookedFromDate = new Date(bookedFrom);
+    const bookedToDate = new Date(bookedTo);
 
-    // Calculate booking dates
-    const selectedDate = new Date();
-    const dayOfWeek = [
-      "Sunday",
-      "Monday",
-      "Tuesday",
-      "Wednesday",
-      "Thursday",
-      "Friday",
-      "Saturday",
-    ];
-
-    const targetDayIndex = dayOfWeek.indexOf(day);
-    const todayIndex = selectedDate.getDay();
-    const daysToAdd =
-      targetDayIndex >= todayIndex
-        ? targetDayIndex - todayIndex
-        : 7 - todayIndex + targetDayIndex;
-
-    selectedDate.setDate(selectedDate.getDate() + daysToAdd);
-
-    const bookedFromDateTime = new Date(
-      `${selectedDate.toISOString().split("T")[0]}T${bookedFrom}:00Z`,
-    );
-
-    const bookedToDateTime = new Date(
-      `${selectedDate.toISOString().split("T")[0]}T${bookedTo}:00Z`,
-    );
-
-    // Create booking but REMOVED: Do not decrease slots/seats here
+    // Create booking
     const booking = await prisma.booking.create({
       data: {
-        userId,
         turfId,
-        numberOfSeats: parseInt(numberOfSeats),
+        userId,
+        numberOfSeats: numSeats,
         day,
-        bookedFrom: bookedFromDateTime,
-        bookedTo: bookedToDateTime,
+        bookedFrom: bookedFromDate,
+        bookedTo: bookedToDate,
         status: "PENDING",
       },
     });
 
-    // REMOVED: The update to decrease availability - now happens in payment verification
-
     return res.status(201).json({
       status: true,
-      message: "Turf booking created, waiting for payment confirmation",
-      data: booking,
+      message: "Booking created successfully. Please complete payment to confirm.",
+      booking: {
+        id: booking.id,
+        turfName: turf.turfName,
+        numberOfSeats: numSeats,
+        day,
+        bookedFrom: bookedFromDate,
+        bookedTo: bookedToDate,
+        status: booking.status,
+        pricePerPerson: turf.pricePerPerson,
+        totalPrice: (turf.pricePerPerson || 0) * numSeats,
+      },
     });
+
   } catch (err: any) {
-    console.error("Error booking turf ", err);
-    res.status(500).json({
+    console.error("Error booking turf:", err);
+    return res.status(500).json({
       status: false,
       message: "Internal Server Error",
       error: err.message,
