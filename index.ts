@@ -25,8 +25,7 @@ app.use(morgan("tiny"));
 
 app.use(
   cors({
-    origin: "*",
-    credentials: true,
+    origin: "*"
   }),
 );
 
